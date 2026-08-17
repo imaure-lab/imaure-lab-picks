@@ -1,0 +1,16 @@
+# 認証情報は絶対にコミットしない
+.env
+
+# ローカルキャッシュ・生成物
+__pycache__/
+*.pyc
+
+# ランキングの生スナップショット・生成画像サンプル(容量が大きい/レビューに不要なので除外)
+data/ranking_snapshot_*.json
+assets/*.png
+
+# data/generate_draft.log と data/draft.json はクラウドレビュー用に追跡対象とする
+
+# ユーザーが作業中に保存した認証情報・スクリーンショット(コミット厳禁)
+トークン.txt
+*.png
