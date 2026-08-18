@@ -58,33 +58,60 @@ Claude Codeでは代行できません。
 `ANTHROPIC_API_KEY` を設定するとClaudeが自然な日本語キャプションを生成します。
 未設定の場合はテンプレートベースの簡易文を生成します(従量課金のため現在は保留中)。
 
+### 6. 楽天アフィリエイトID(収益化用)
+
+1. https://affiliate.rakuten.co.jp/ に登録(パートナーサイトの種類は「SNS」、サイトURLはInstagramのプロフィールURL)
+2. 発行された**アフィリエイトID**(`xxxxxxxx.xxxxxxxx.xxxxxxxx.xxxxxxxx`形式)を `.env` の `RAKUTEN_AFFILIATE_ID` に設定
+
+設定すると、`RankedItem.affiliate_url` にトラッキング付きの購入リンクが入ります。
+**Instagramのフィード投稿のキャプション内URLはタップできない**ため、実際の購入導線は
+「投稿のたびにInstagramプロフィールの『ウェブサイト』欄をこのURLに貼り替える」運用になります
+(この項目はスマホアプリからのみ編集可能)。`main.py`/`approve_and_post.py`実行時に
+URLとQRコード(`data/affiliate_link_qr.png`)が表示されるので、スマホのカメラで読み取って貼り替えてください。
+キャプションには`[PR]`表記(ステマ規制対応)が自動で入ります。
+
 ## 使い方
 
-### パターンA: その場で確認しながら投稿
+### 標準フロー: 下書き生成 → Canvaで画像強化 → 承認・投稿
+
+Instagramの2026年アルゴリズム改定で「まとめアカウント」的な転載画像はリーチが制限されるため、
+**生画像のまま投稿せず、Canvaでブランド加工した画像を使うのが標準フロー**です。
+
+```bash
+# ① 決まった時間に自動実行(下書き保存のみ、投稿はしない。タスクスケジューラ向け)
+python src/generate_draft.py
+```
+
+```
+② Claude Codeのチャットで依頼:
+「この下書きの画像をテンプレートで強化して」
+→ 商品画像・商品名・価格・順位を反映したデザインをCanvaで生成し、
+  data/draft.json の enhanced_image_url に書き込む
+```
+
+```bash
+# ③ 都合の良いタイミングで手動実行(下書きを確認して投稿)
+python src/approve_and_post.py
+```
+
+`enhanced_image_url` が未設定だと `approve_and_post.py` は投稿をブロックします
+(②を省略できないようにするためのガードです)。どうしても生画像のまま投稿したい場合のみ
+`python src/approve_and_post.py --raw` を使ってください。
+
+`generate_draft.py` はWindowsのタスクスケジューラで自動実行できます。
+
+1. タスクスケジューラを開き「タスクの作成」
+2. トリガー: 毎日 19:00 など(「スリープ状態のコンピューターを起動して実行する」を有効化推奨)
+3. 操作: プログラム `python`、引数 `src\generate_draft.py`、開始場所 `D:\ClaudeCode\rakuten_ig_bot`
+
+### 簡易フロー: その場で確認しながら即時投稿(Canva加工なし)
 
 ```bash
 python src/main.py
 ```
 
 ランキング取得 → トレンド分析 → キャプション生成 → プレビュー表示 →
-**確認プロンプトでYesと答えた場合のみ** Instagramに投稿します。
+**確認プロンプトでYesと答えた場合のみ** 生画像のままInstagramに投稿します。
+動作確認や急ぎの投稿向け。
 
-### パターンB: 都合の良いタイミングにずらして投稿(スケジュール実行向け)
-
-投稿に最適な時間帯(19〜22時が目安)に自分で操作できない場合、生成と投稿を分離できます。
-
-```bash
-# ① 決まった時間に自動実行(下書き保存のみ、投稿はしない)
-python src/generate_draft.py
-
-# ② 都合の良いタイミングで手動実行(下書きを確認して投稿)
-python src/approve_and_post.py
-```
-
-`generate_draft.py` はWindowsのタスクスケジューラで自動実行できます。
-
-1. タスクスケジューラを開き「タスクの作成」
-2. トリガー: 毎日 19:00 など
-3. 操作: プログラム `python`、引数 `src\generate_draft.py`、開始場所 `D:\ClaudeCode\rakuten_ig_bot`
-
-投稿(publish)は必ず `approve_and_post.py` 側の手動確認を挟みます(自動無人投稿はしません)。
+投稿(publish)は必ず手動確認を挟みます(自動無人投稿はしません)。

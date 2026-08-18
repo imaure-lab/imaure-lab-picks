@@ -16,6 +16,7 @@ def _template_caption(top: TrendItem, others: list[TrendItem]) -> str:
     item = top.item
     label = STATUS_LABEL[top.status]
     lines = [
+        "[PR]",
         f"【{label}】{item.name}",
         f"楽天リアルタイムランキング {item.rank}位!",
         f"¥{item.price:,}(税込) / レビュー{item.review_count}件 ★{item.review_average}",
@@ -26,7 +27,9 @@ def _template_caption(top: TrendItem, others: list[TrendItem]) -> str:
         for t in others[:3]:
             lines.append(f"・{t.item.name}({STATUS_LABEL[t.status]} {t.item.rank}位)")
         lines.append("")
-    lines.append("#楽天市場 #楽天ランキング #トレンド #お買い物 #新商品")
+    lines.append("🛍️購入はプロフィールのリンクから")
+    lines.append("")
+    lines.append("#PR #楽天市場 #楽天ランキング #トレンド #お買い物 #新商品")
     return "\n".join(lines)
 
 
@@ -55,10 +58,12 @@ def generate_caption(top: TrendItem, others: list[TrendItem] | None = None) -> s
 {others_text or "なし"}
 
 要件:
+- 冒頭1行目に必ず「[PR]」と明記する(アフィリエイトリンクを利用するため、ステルスマーケティング規制対応として省略不可)
 - 3〜5文程度、親しみやすく購買意欲を引く文体
 - 価格やランキング順位などの事実は誇張せず正確に書く
 - 効果効能や医薬品的な断定表現は使わない
-- 最後に関連ハッシュタグを5〜8個つける(#楽天市場 #楽天ランキング を含める)
+- 「購入はプロフィールのリンクから」という趣旨の一文を必ず入れる(キャプション内URLはタップできないため)
+- 最後に関連ハッシュタグを5〜8個つける(#PR #楽天市場 #楽天ランキング を含める)
 - キャプション本文のみを出力し、前置きや説明文は付けない
 """
 
