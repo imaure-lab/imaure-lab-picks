@@ -94,7 +94,7 @@ def _git_publish() -> None:
             print(f"  (ローカルには {OUTPUT_PATH} を生成済みです)")
             return
 
-        subprocess.run(["git", "add", "docs/index.html"], cwd=BASE_DIR, check=True, timeout=10)
+        subprocess.run(["git", "add", "docs/index.html", "docs/images"], cwd=BASE_DIR, check=True, timeout=10)
         commit = subprocess.run(
             ["git", "commit", "-m", "Update landing page"],
             cwd=BASE_DIR,

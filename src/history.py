@@ -2,10 +2,28 @@
 import json
 from datetime import datetime, timezone
 
-from config import DATA_DIR
+import requests
+
+from config import DATA_DIR, DOCS_DIR
 
 HISTORY_PATH = DATA_DIR / "posted_history.json"
+IMAGES_DIR = DOCS_DIR / "images"
 MAX_ENTRIES = 30
+
+
+def _mirror_image(image_url: str, post_id: str) -> str:
+    """外部画像(Canvaの書き出しURLは数時間で失効する)をリポジトリ内に保存し、相対パスを返す。"""
+    IMAGES_DIR.mkdir(exist_ok=True)
+    dest = IMAGES_DIR / f"{post_id}.jpg"
+    try:
+        resp = requests.get(image_url, timeout=30)
+        resp.raise_for_status()
+        with open(dest, "wb") as f:
+            f.write(resp.content)
+        return f"images/{post_id}.jpg"
+    except Exception as e:
+        print(f"[history] 画像のミラー保存に失敗しました(元URLをそのまま使用): {e}")
+        return image_url
 
 
 def append_post(item: dict, image_url: str, post_id: str) -> None:
@@ -16,6 +34,8 @@ def append_post(item: dict, image_url: str, post_id: str) -> None:
     except FileNotFoundError:
         history = []
 
+    mirrored_image = _mirror_image(image_url, post_id)
+
     history.insert(
         0,
         {
@@ -24,7 +44,7 @@ def append_post(item: dict, image_url: str, post_id: str) -> None:
             "name": item["name"],
             "price": item["price"],
             "rank": item["rank"],
-            "image_url": image_url,
+            "image_url": mirrored_image,
             "affiliate_url": item.get("affiliate_url") or item.get("url", ""),
         },
     )
