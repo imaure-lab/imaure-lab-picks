@@ -10,7 +10,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 
 from config import DATA_DIR
-from pipeline import PipelineError, build_draft
+from pipeline import NoTrendingItemError, PipelineError, build_draft
 
 DRAFT_PATH = DATA_DIR / "draft.json"
 LOG_PATH = DATA_DIR / "generate_draft.log"
@@ -25,6 +25,9 @@ def _log(message: str) -> None:
 def main() -> None:
     try:
         top, others, caption = build_draft()
+    except NoTrendingItemError as e:
+        _log(f"[スキップ] {e}")
+        sys.exit(0)
     except PipelineError as e:
         _log(f"[エラー] {e}")
         sys.exit(1)

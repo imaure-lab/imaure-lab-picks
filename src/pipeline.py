@@ -14,8 +14,21 @@ class PipelineError(RuntimeError):
     pass
 
 
+class NoTrendingItemError(PipelineError):
+    """新規ランクイン・急上昇の商品が無かった(=先読み価値のある候補が無かった)場合。"""
+
+
+# 「定番(steady)」は楽天の公式ランキング・おすすめ表示と重複しやすく、
+# 「他の人より先に知れた」という価値を示せないため投稿候補から除外する。
+QUALIFYING_STATUSES = {"new", "up"}
+
+
 def build_draft() -> tuple[TrendItem, list[TrendItem], str]:
-    """全ジャンルを取得・分析し、(トップ商品, その他候補, キャプション)を返す。"""
+    """全ジャンルを取得・分析し、(トップ商品, その他候補, キャプション)を返す。
+
+    新規ランクイン・急上昇の商品が無い場合は NoTrendingItemError を送出する
+    (定番商品は楽天の公式ランキングと重複するだけで「先読み」の価値が無いため)。
+    """
     trend_lists = []
     for i, genre_id in enumerate(RAKUTEN_GENRE_IDS):
         if i > 0:
@@ -32,6 +45,14 @@ def build_draft() -> tuple[TrendItem, list[TrendItem], str]:
         raise PipelineError("ランキングデータが取得できませんでした。")
 
     trends = merge_trends(trend_lists, top_n=10)
-    top, others = trends[0], trends[1:]
+    qualifying = [t for t in trends if t.status in QUALIFYING_STATUSES]
+
+    if not qualifying:
+        raise NoTrendingItemError(
+            "新規ランクイン・急上昇の商品が見つかりませんでした。"
+            "定番商品は楽天の公式ランキングと同じになるため、本日の投稿はスキップします。"
+        )
+
+    top, others = qualifying[0], qualifying[1:]
     caption = generate_caption(top, others)
     return top, others, caption

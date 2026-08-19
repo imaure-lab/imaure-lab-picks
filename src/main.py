@@ -13,13 +13,16 @@ from dataclasses import asdict
 from history import append_post
 from instagram_client import InstagramClientError, post_image
 from landing_page import publish_landing_page
-from pipeline import PipelineError, build_draft
+from pipeline import NoTrendingItemError, PipelineError, build_draft
 from qr_util import save_qr
 
 
 def main() -> None:
     try:
         top, others, caption = build_draft()
+    except NoTrendingItemError as e:
+        print(f"[スキップ] {e}")
+        return
     except PipelineError as e:
         print(f"[エラー] {e}")
         sys.exit(1)
