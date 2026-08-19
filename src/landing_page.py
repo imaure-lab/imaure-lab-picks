@@ -6,8 +6,11 @@ Instagramのフィード投稿のキャプション内リンクはタップで�
 """
 import json
 import subprocess
+from datetime import datetime, timedelta, timezone
 
 from config import BASE_DIR, DATA_DIR, DOCS_DIR
+
+JST = timezone(timedelta(hours=9))
 
 HISTORY_PATH = DATA_DIR / "posted_history.json"
 OUTPUT_PATH = DOCS_DIR / "index.html"
@@ -16,10 +19,13 @@ OUTPUT_PATH = DOCS_DIR / "index.html"
 def _render_html(history: list[dict]) -> str:
     cards = []
     for entry in history:
+        posted_at_jst = datetime.fromisoformat(entry["posted_at"]).astimezone(JST)
+        timestamp_label = posted_at_jst.strftime("%m/%d %H:%M時点のランキングより")
         cards.append(f"""
         <a class="card" href="{entry['affiliate_url']}" target="_blank" rel="nofollow sponsored noopener">
           <img src="{entry['image_url']}" alt="" loading="lazy">
           <div class="card-body">
+            <p class="timestamp">{timestamp_label}</p>
             <p class="name">{entry['name'][:60]}</p>
             <p class="price">¥{entry['price']:,}</p>
             <span class="cta">購入はこちら →</span>
@@ -48,6 +54,7 @@ def _render_html(history: list[dict]) -> str:
     text-decoration:none; color:inherit; box-shadow:0 1px 4px rgba(0,0,0,0.06); }}
   .card img {{ width:88px; height:88px; object-fit:cover; border-radius:8px; flex-shrink:0; background:#eee; }}
   .card-body {{ display:flex; flex-direction:column; justify-content:center; min-width:0; }}
+  .timestamp {{ font-size:11px; color:var(--sub); margin:0 0 4px; }}
   .name {{ font-size:13px; line-height:1.4; margin:0 0 6px; overflow:hidden; text-overflow:ellipsis;
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }}
   .price {{ font-size:15px; font-weight:600; margin:0 0 6px; }}
