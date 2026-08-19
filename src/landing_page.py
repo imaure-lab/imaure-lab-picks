@@ -19,8 +19,9 @@ OUTPUT_PATH = DOCS_DIR / "index.html"
 def _render_html(history: list[dict]) -> str:
     cards = []
     for entry in history:
-        posted_at_jst = datetime.fromisoformat(entry["posted_at"]).astimezone(JST)
-        timestamp_label = posted_at_jst.strftime("%m/%d %H:%M時点のランキングより")
+        ranking_at = entry.get("ranking_at") or entry["posted_at"]
+        ranking_at_jst = datetime.fromisoformat(ranking_at).astimezone(JST)
+        timestamp_label = ranking_at_jst.strftime("%m/%d %H:%M時点のランキングより")
         cards.append(f"""
         <a class="card" href="{entry['affiliate_url']}" target="_blank" rel="nofollow sponsored noopener">
           <img src="{entry['image_url']}" alt="" loading="lazy">

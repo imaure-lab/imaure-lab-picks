@@ -26,8 +26,13 @@ def _mirror_image(image_url: str, post_id: str) -> str:
         return image_url
 
 
-def append_post(item: dict, image_url: str, post_id: str) -> None:
-    """投稿成功後に呼び出す。item は RankedItem を dict化したもの。"""
+def append_post(item: dict, image_url: str, post_id: str, ranking_at: str) -> None:
+    """投稿成功後に呼び出す。
+
+    item は RankedItem を dict化したもの。
+    ranking_at は実際に楽天ランキングを取得した時刻(ISO形式)。
+    投稿処理自体(承認待ちなど)は後からになるため、posted_atとは別に持つ。
+    """
     try:
         with open(HISTORY_PATH, encoding="utf-8") as f:
             history = json.load(f)
@@ -40,6 +45,7 @@ def append_post(item: dict, image_url: str, post_id: str) -> None:
         0,
         {
             "posted_at": datetime.now(timezone.utc).isoformat(),
+            "ranking_at": ranking_at,
             "post_id": post_id,
             "name": item["name"],
             "price": item["price"],

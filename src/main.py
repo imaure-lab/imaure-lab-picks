@@ -7,6 +7,7 @@
 approve_and_post.py を使うこと。
 """
 import sys
+from datetime import datetime, timezone
 
 from config import IG_ACCESS_TOKEN, IG_USER_ID
 from dataclasses import asdict
@@ -18,6 +19,7 @@ from qr_util import save_qr
 
 
 def main() -> None:
+    ranking_at = datetime.now(timezone.utc).isoformat()
     try:
         top, others, caption = build_draft()
     except NoTrendingItemError as e:
@@ -65,7 +67,7 @@ def main() -> None:
 
     print(f"投稿完了しました。post_id={post_id}")
 
-    append_post(asdict(top.item), top.item.image_url, post_id)
+    append_post(asdict(top.item), top.item.image_url, post_id, ranking_at)
     publish_landing_page()
 
 

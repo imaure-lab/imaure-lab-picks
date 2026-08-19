@@ -80,7 +80,7 @@ def main() -> None:
 
     print(f"投稿完了しました。post_id={post_id}")
 
-    append_post(top_item, image_to_post, post_id)
+    append_post(top_item, image_to_post, post_id, draft["generated_at"])
     publish_landing_page()
 
     DRAFT_PATH.unlink()  # 二重投稿防止のため下書きを削除
