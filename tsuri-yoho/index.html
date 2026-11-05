@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="季節・海水温・潮回り・風から、東京湾のエリア×魚種の釣れやすさを7日先まで予測します。">
+<meta name="theme-color" content="#13293d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="釣れ予報">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>東京湾 釣れ予報</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: 海図の索引カードのような1カラム。上部で今日の全体像(マトリクス)→下で選択エリア×魚種の7日予報と根拠 */
+:root{
+  --bg:#eef3f5; --paper:#ffffff; --ink:#13293d; --muted:#5b6f7f; --line:#cfdbe2;
+  --accent:#e2621b; --sea:#1f6f8b; --sea-soft:#d6e8ef;
+  --good:#1b8a5a; --mid:#c99a1a; --bad:#b8433a;
+  --f-display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1822; --paper:#13222f; --ink:#e3edf3; --muted:#91a6b5; --line:#24394a;
+  --accent:#f08a4b; --sea:#5fb3cf; --sea-soft:#183444;
+  --good:#4cc08a; --mid:#e0b84a; --bad:#e2766c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1822; --paper:#13222f; --ink:#e3edf3; --muted:#91a6b5; --line:#24394a;
+  --accent:#f08a4b; --sea:#5fb3cf; --sea-soft:#183444;
+  --good:#4cc08a; --mid:#e0b84a; --bad:#e2766c; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.65;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:860px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:22px}
+header{display:grid;gap:6px}
+.eyebrow{font-size:12px;letter-spacing:.12em;color:var(--sea);font-weight:700}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(28px,6vw,42px);line-height:1.15;margin:0;text-wrap:balance}
+.lead{color:var(--muted);margin:0;max-width:62ch}
+.sample.live{border-style:solid;border-color:var(--good);color:var(--good)}
+.sample{display:inline-flex;gap:6px;align-items:center;font-size:12px;border:1px dashed var(--accent);color:var(--accent);padding:2px 10px;border-radius:999px;width:fit-content}
+h2{font-family:var(--f-display);font-size:20px;margin:0 0 10px;text-wrap:balance}
+section{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:18px}
+.sub{font-size:13px;color:var(--muted);margin:-4px 0 12px}
+/* matrix */
+.mx-scroll{overflow-x:auto}
+table.mx{border-collapse:separate;border-spacing:4px;width:100%;min-width:460px;font-variant-numeric:tabular-nums}
+.mx th{font-size:12px;font-weight:700;color:var(--muted);text-align:left;padding:4px 6px}
+.mx td{padding:0}
+.mx button{all:unset;cursor:pointer;display:grid;gap:0;width:100%;box-sizing:border-box;padding:8px 10px;border-radius:7px;border:2px solid transparent;text-align:left}
+.mx button:focus-visible,.chip:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.mx button[aria-pressed="true"]{border-color:var(--ink)}
+.mx .n{font-family:var(--f-data);font-size:20px;font-weight:600;line-height:1.1}
+.mx .r{font-size:12px}
+/* controls */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.chip{all:unset;cursor:pointer;font-size:14px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--bg)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+/* days */
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.day{all:unset;cursor:pointer;display:grid;justify-items:center;gap:4px;padding:8px 2px;border-radius:8px;border:1px solid var(--line);background:var(--bg)}
+.day[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.day:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.day .d{font-size:12px;color:var(--muted)}
+.day .bar{width:12px;height:64px;border-radius:6px;background:var(--sea-soft);position:relative;overflow:hidden}
+.day .bar i{position:absolute;left:0;right:0;bottom:0;border-radius:6px}
+.day .s{font-family:var(--f-data);font-weight:600;font-size:15px}
+.day .t{font-size:11px;color:var(--muted)}
+.warn-dot{width:8px;height:8px;border-radius:50%;background:var(--bad)}
+/* detail */
+.detail{display:grid;grid-template-columns:minmax(0,180px) minmax(0,1fr);gap:18px;margin-top:16px;align-items:start}
+@media (max-width:560px){.detail{grid-template-columns:minmax(0,1fr)}}
+.big{display:grid;justify-items:start;gap:2px}
+.big .score{font-family:var(--f-data);font-size:56px;font-weight:600;line-height:1}
+.big .rank{font-family:var(--f-display);font-size:22px;font-weight:800}
+.big .when{font-size:13px;color:var(--muted)}
+.factors{display:grid;gap:10px;min-width:0}
+.f{display:grid;grid-template-columns:5.5em minmax(0,1fr) 3.2em;gap:8px;align-items:center;font-size:14px}
+.f .track{height:10px;border-radius:5px;background:var(--sea-soft);overflow:hidden}
+.f .track i{display:block;height:100%;background:var(--sea);border-radius:5px}
+.f .v{font-family:var(--f-data);text-align:right;font-variant-numeric:tabular-nums}
+.f small{grid-column:2/4;color:var(--muted);font-size:12px;margin-top:-6px}
+.alert{border-left:4px solid var(--bad);background:var(--bg);padding:8px 12px;border-radius:0 6px 6px 0;font-size:14px}
+.note{border-left:4px solid var(--sea);background:var(--bg);padding:8px 12px;border-radius:0 6px 6px 0;font-size:14px}
+.cond{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted)}
+.cond b{color:var(--ink);font-family:var(--f-data);font-weight:600}
+ol.how{margin:0;padding-left:1.3em;display:grid;gap:6px;max-width:65ch}
+.src{font-size:12px;color:var(--muted)}
+.pr{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;border:1px solid var(--muted);color:var(--muted);padding:0 6px;border-radius:4px;margin-left:8px;vertical-align:middle}
+.gear-head{display:grid;gap:4px;margin-bottom:12px}
+.gear-msg{font-size:14px;margin:0}
+.gear-msg b{color:var(--accent)}
+.gears{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.gear{display:grid;gap:6px;padding:14px;border-radius:8px;background:var(--bg);border:1px solid var(--line);min-width:0}
+.gear .tag{font-size:11px;letter-spacing:.08em;color:var(--sea);font-weight:700}
+.gear .cat{font-family:var(--f-display);font-size:17px;font-weight:800;line-height:1.3}
+.gear .why{font-size:13px;color:var(--muted)}
+.gear .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.gear a{font-size:13px;text-decoration:none;padding:5px 12px;border-radius:999px;border:1px solid var(--ink);color:var(--ink)}
+.gear a.rk{background:var(--accent);border-color:var(--accent);color:#fff}
+.gear a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){.day .bar i,.f .track i{transition:height .3s,width .3s}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">TOKYO BAY · 釣れ予報 試作版</div>
+    <h1>東京湾 釣れ予報</h1>
+    <p class="lead">季節・海水温・潮回り・風から、エリアと魚種ごとに「今週どこが狙い目か」を100点満点で予測します。具体的な釣り場は出しません。</p>
+    <span class="sample" id="dataBadge">● サンプルデータ表示中（水温・風は仮の値／潮回りは日付から実計算）</span>
+  </header>
+
+  <section aria-labelledby="h-mx">
+    <h2 id="h-mx">今日の狙い目マップ</h2>
+    <p class="sub" id="today-label"></p>
+    <div class="mx-scroll"><table class="mx" id="mx"></table></div>
+  </section>
+
+  <section aria-labelledby="h-fc">
+    <h2 id="h-fc">7日間の予報</h2>
+    <div class="chips" id="areaChips" role="group" aria-label="エリア"></div>
+    <div class="chips" id="fishChips" role="group" aria-label="魚種"></div>
+    <div class="days" id="days"></div>
+    <div class="detail">
+      <div class="big">
+        <div class="score" id="bScore"></div>
+        <div class="rank" id="bRank"></div>
+        <div class="when" id="bWhen"></div>
+      </div>
+      <div class="factors" id="factors"></div>
+    </div>
+    <div style="display:grid;gap:10px;margin-top:16px">
+      <div class="cond" id="cond"></div>
+      <div id="alerts" style="display:grid;gap:8px"></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-gear">
+    <div class="gear-head">
+      <h2 id="h-gear" style="margin:0">この予報で狙うなら<span class="pr">PR</span></h2>
+      <p class="sub" style="margin:0">本番ではアフィリエイト広告を含みます。試作のため、ボタンは通常の検索ページ（報酬なし）に飛びます。</p>
+    </div>
+    <p class="gear-msg" id="gearMsg"></p>
+    <div class="gears" id="gears" style="margin-top:12px"></div>
+  </section>
+
+  <section aria-labelledby="h-how">
+    <h2 id="h-how">スコアの決め方（試作ルール）</h2>
+    <ol class="how">
+      <li><b>季節</b>（最大40点）：魚種ごとの月別シーズン表。11月はシーバスの秋の荒食い、タチウオの終盤が高評価。</li>
+      <li><b>水温</b>（最大30点）：魚種ごとの適水温帯に入っていれば満点、外れるほど減点。平年との差も解説に反映。</li>
+      <li><b>潮回り</b>（最大20点）：月齢から大潮〜若潮を計算。潮がよく動く日ほど高評価（魚種で重みが違う）。</li>
+      <li><b>エリア相性</b>（係数）：過去の傾向による補正。本番では船宿・釣具店の公開釣果で学習させる部分です。</li>
+      <li><b>風・波</b>：風速6m/s以上・波高1.2m以上で5点、風速8m/s以上・波高2m以上で15点減点し、安全上の注意を表示。</li>
+    </ol>
+    <p class="src" style="margin-top:12px" id="srcNote">海面水温・波・風・天気：<a href="https://open-meteo.com/" target="_blank" rel="noopener">Weather data by Open-Meteo.com</a>（<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>）を1日4回取得。平年値は概算（気象庁の平年値で置き換え予定）。潮回りは月齢から計算。データが取れない日・項目は仮の値で補っています。</p>
+  </section>
+</div>
+
+<script>
+(function(){
+const AREAS=[
+  {id:"wanoku",name:"湾奥",full:"湾奥（東京・千葉湾奥）",sst:18.4,norm:17.3},
+  {id:"yokohama",name:"横浜・川崎",full:"横浜・川崎",sst:18.9,norm:17.9},
+  {id:"uchibo",name:"内房",full:"内房（木更津〜富津）",sst:19.3,norm:18.4},
+  {id:"wanko",name:"湾口",full:"湾口（観音崎〜剣崎）",sst:20.2,norm:19.6}
+];
+const FISH=[
+  {id:"seabass",name:"シーバス",opt:[15,22],
+   season:[20,15,15,25,30,25,25,25,30,38,40,35],
+   tide:{"大潮":20,"中潮":18,"小潮":8,"長潮":5,"若潮":10},
+   aff:{wanoku:1.0,yokohama:.95,uchibo:.85,wanko:.75},
+   hi:"水温が平年より高めなので、秋の荒食いが例年より長引く可能性があります。",
+   lo:"水温が平年より低めで、ベイトの移動が早まる可能性があります。"},
+  {id:"aji",name:"アジ",opt:[16,24],
+   season:[20,15,15,22,30,35,35,32,30,30,28,22],
+   tide:{"大潮":16,"中潮":20,"小潮":12,"長潮":8,"若潮":12},
+   aff:{wanoku:.6,yokohama:1.0,uchibo:.9,wanko:.95},
+   hi:"高めの水温で群れが浅場に残りやすく、型が揃いやすい状況です。",
+   lo:"水温低下で群れが深場へ移る時期が早まるかもしれません。"},
+  {id:"tachi",name:"タチウオ",opt:[16,23],
+   season:[15,10,10,10,15,25,30,35,38,38,32,20],
+   tide:{"大潮":16,"中潮":20,"小潮":16,"長潮":12,"若潮":14},
+   aff:{wanoku:.6,yokohama:1.0,uchibo:.95,wanko:.9},
+   hi:"水温が高めで、シーズン終盤でも食いが続く見込みです。",
+   lo:"水温低下が早く、シーズン終了が前倒しになる可能性があります。"}
+];
+// サンプル風速(m/s)と天気。data/forecast.json（Open-Meteo）が読めない日・項目の代わりに使う
+const WIND=[4,6,9,5,3,4,7], SKY=["晴れ","くもり","雨","晴れ","晴れ","くもり","くもり"];
+const SST_TREND=[0,-.1,-.3,-.3,-.4,-.5,-.6];
+let LIVE=null; // data/forecast.json の中身
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const num=v=>typeof v==="number"&&isFinite(v);
+// エリア×日の海況。実データがあれば使い、無い項目はサンプルで補う
+function cond(area,i,day){
+  const c={sst:+(area.sst+SST_TREND[i]).toFixed(1),wind:WIND[i],sky:SKY[i],wave:null,norm:area.norm,live:false,sstFrom:null};
+  const a=LIVE&&LIVE.areas&&LIVE.areas[area.id], j=LIVE&&Array.isArray(LIVE.dates)?LIVE.dates.indexOf(ymd(day)):-1;
+  if(a&&j>=0){
+    if(a.sst&&num(a.sst[j])){c.sst=a.sst[j];c.live=true;c.sstFrom=a.sst_from||null;}
+    if(a.wind&&num(a.wind[j])){c.wind=a.wind[j];c.live=true;}
+    if(a.sky&&a.sky[j])c.sky=a.sky[j];
+    if(a.wave&&num(a.wave[j]))c.wave=a.wave[j];
+    if(num(a.norm))c.norm=a.norm;
+  }
+  return c;
+}
+
+function moonAge(d){ // JST正午時点の月齢
+  const ref=Date.UTC(2000,0,6,18,14), t=Date.UTC(d.getFullYear(),d.getMonth(),d.getDate(),3);
+  const syn=29.530588853; let a=((t-ref)/86400000)%syn; if(a<0)a+=syn; return a;}
+function tideName(age){const a=Math.round(age)%30;
+  if(a<=2||a>=29)return"大潮"; if(a<=6)return"中潮"; if(a<=9)return"小潮"; if(a===10)return"長潮"; if(a===11)return"若潮";
+  if(a<=13)return"中潮"; if(a<=17)return"大潮"; if(a<=21)return"中潮"; if(a<=24)return"小潮"; if(a===25)return"長潮"; if(a===26)return"若潮"; return"中潮";}
+function tempScore(t,[lo,hi]){ if(t>=lo&&t<=hi)return 30; const d=t<lo?lo-t:t-hi; return Math.max(0,Math.round(30-d*7));}
+function calc(area,fish,i){
+  const day=new Date(BASE); day.setDate(BASE.getDate()+i);
+  const tide=tideName(moonAge(day)), c=cond(area,i,day), sst=c.sst, wind=c.wind, wave=c.wave;
+  const s=fish.season[day.getMonth()], t=tempScore(sst,fish.opt), td=fish.tide[tide], aff=fish.aff[area.id];
+  const windPen=wind>=8?15:wind>=6?5:0, wavePen=wave==null?0:wave>=2?15:wave>=1.2?5:0;
+  let raw=(s+t+td)*aff, pen=Math.max(windPen,wavePen);
+  const score=Math.max(0,Math.min(100,Math.round(raw/90*100-pen)));
+  return {day,tide,sst,wind,wave,windPen,wavePen,sky:c.sky,norm:c.norm,live:c.live,sstFrom:c.sstFrom,s,t,td,aff,pen,score};
+}
+function rank(sc){return sc>=75?{r:"◎ 好機",c:"var(--good)"}:sc>=55?{r:"○ まずまず",c:"var(--sea)"}:sc>=35?{r:"△ 渋め",c:"var(--mid)"}:{r:"× 厳しい",c:"var(--bad)"};}
+const W="日月火水木金土";
+const fmt=d=>`${d.getMonth()+1}/${d.getDate()}（${W[d.getDay()]}）`;
+
+const BASE=(()=>{const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate());})();
+let st={area:"yokohama",fish:"seabass",day:0};
+try{const s=JSON.parse(localStorage.getItem("tsuri-st")||"null"); if(s&&s.area&&s.fish){st.area=s.area;st.fish=s.fish;}}catch(e){}
+const save=()=>{try{localStorage.setItem("tsuri-st",JSON.stringify({area:st.area,fish:st.fish}))}catch(e){}};
+const A=()=>AREAS.find(a=>a.id===st.area), F=()=>FISH.find(f=>f.id===st.fish);
+
+function renderMatrix(){
+  const r0=calc(AREAS[0],FISH[0],0);
+  document.getElementById("today-label").textContent=`${fmt(r0.day)}・${r0.tide}。セルを押すと下の予報に切り替わります。`;
+  let h="<thead><tr><th scope='col'>エリア</th>"+FISH.map(f=>`<th scope='col'>${f.name}</th>`).join("")+"</tr></thead><tbody>";
+  AREAS.forEach(a=>{h+=`<tr><th scope='row'>${a.name}</th>`;
+    FISH.forEach(f=>{const r=calc(a,f,0),k=rank(r.score),on=a.id===st.area&&f.id===st.fish;
+      h+=`<td><button data-a="${a.id}" data-f="${f.id}" aria-pressed="${on}" style="background:color-mix(in srgb, ${k.c} ${Math.round(12+r.score/4)}%, var(--paper))"><span class="n">${r.score}</span><span class="r">${k.r}</span></button></td>`;});
+    h+="</tr>";});
+  const mx=document.getElementById("mx"); mx.innerHTML=h+"</tbody>";
+  mx.querySelectorAll("button").forEach(b=>b.onclick=()=>{st.area=b.dataset.a;st.fish=b.dataset.f;st.day=0;save();renderAll();});
+}
+function chips(id,list,key){const el=document.getElementById(id);
+  el.innerHTML=list.map(x=>`<button class="chip" data-v="${x.id}" aria-pressed="${st[key]===x.id}">${x.name}</button>`).join("");
+  el.querySelectorAll("button").forEach(b=>b.onclick=()=>{st[key]=b.dataset.v;save();renderAll();});}
+function renderDays(){
+  const el=document.getElementById("days"); let h="";
+  for(let i=0;i<7;i++){const r=calc(A(),F(),i),k=rank(r.score);
+    h+=`<button class="day" data-i="${i}" aria-pressed="${st.day===i}" aria-label="${fmt(r.day)} ${r.score}点 ${k.r}">
+      <span class="d">${i===0?"今日":(r.day.getMonth()+1)+"/"+r.day.getDate()}</span>
+      <span class="d">${W[r.day.getDay()]}</span>
+      <span class="bar"><i style="height:${r.score}%;background:${k.c}"></i></span>
+      <span class="s">${r.score}</span><span class="t">${r.tide}</span>
+      ${r.pen>=15?`<span class="warn-dot" title="${r.windPen>=15?"強風":"高波"}"></span>`:''}</button>`;}
+  el.innerHTML=h; el.querySelectorAll("button").forEach(b=>b.onclick=()=>{st.day=+b.dataset.i;renderDetail();renderDays();renderGear();});
+}
+function bar(label,v,max,note){return `<div class="f"><span>${label}</span><span class="track"><i style="width:${Math.max(0,v/max*100)}%"></i></span><span class="v">${v}/${max}</span><small>${note}</small></div>`;}
+function renderDetail(){
+  const a=A(),f=F(),r=calc(a,f,st.day),k=rank(r.score);
+  document.getElementById("bScore").textContent=r.score; document.getElementById("bScore").style.color=k.c;
+  document.getElementById("bRank").textContent=k.r;
+  document.getElementById("bWhen").textContent=`${fmt(r.day)}・${a.full}・${f.name}`;
+  document.getElementById("factors").innerHTML=
+    bar("季節",r.s,40,`${r.day.getMonth()+1}月の${f.name}のシーズン評価`)+
+    bar("水温",r.t,30,`予想 ${r.sst}℃（適水温 ${f.opt[0]}〜${f.opt[1]}℃）`)+
+    bar("潮回り",r.td,20,`${r.tide}（月齢 ${moonAge(r.day).toFixed(1)}）`)+
+    `<div class="f"><span>エリア相性</span><span class="track"><i style="width:${r.aff*100}%"></i></span><span class="v">×${r.aff.toFixed(2)}</span><small>過去傾向による補正（本番は釣果データで学習）</small></div>`;
+  const from=r.sstFrom?`（${AREAS.find(x=>x.id===r.sstFrom).name}の値で代用）`:"";
+  document.getElementById("cond").innerHTML=`<span>天気 <b>${r.sky}</b></span><span>最大風速 <b>${r.wind}m/s</b></span>${r.wave!=null?`<span>最大波高 <b>${r.wave}m</b></span>`:""}<span>海面水温 <b>${r.sst}℃</b>${from}</span><span>平年 <b>${r.norm}℃</b></span>${r.live?"":"<span>※この日は仮の値</span>"}`;
+  const diff=+(r.sst-r.norm).toFixed(1); let al="";
+  if(r.pen>=15)al+=`<div class="alert"><b>${r.windPen>=15?`強風注意（${r.wind}m/s）`:`高波注意（${r.wave}m）`}</b>：堤防・磯は危険です。船は出船中止の可能性があります。スコアを15点下げています。</div>`;
+  else if(r.pen>0)al+=`<div class="alert">${r.windPen>0?`やや風あり（${r.wind}m/s）`:`やや波あり（${r.wave}m）`}：足場の高い場所では注意してください。スコアを5点下げています。</div>`;
+  al+=`<div class="note"><b>平年比 ${diff>0?"+":""}${diff}℃</b>：${diff>=0.8?f.hi:diff<=-0.8?f.lo:"ほぼ平年並みで、例年どおりの傾向が見込めます。"}</div>`;
+  document.getElementById("alerts").innerHTML=al;
+}
+// 魚種ごとの道具カテゴリ（本番は季節・スコアで出し分け、楽天APIで商品を自動表示）
+const GEAR={
+  seabass:[
+    {tag:"ルアー",cat:"ミノー 12〜14cm",kw:"シーバス ミノー 12cm",why:"秋はイワシやコノシロに付く大型狙い。シルエット大きめが定番。"},
+    {tag:"ルアー",cat:"バイブレーション",kw:"シーバス バイブレーション",why:"風で波立つ日や広く探りたい日に。遠投が効きます。"},
+    {tag:"タックル",cat:"シーバスロッド 9ft前後",kw:"シーバスロッド 9ft",why:"堤防・河口の両方で使いやすい長さ。"}],
+  aji:[
+    {tag:"仕掛け",cat:"サビキ仕掛け",kw:"アジ サビキ 仕掛け",why:"群れが入れば初心者でも数釣りしやすい定番。"},
+    {tag:"ルアー",cat:"アジング用ジグヘッド",kw:"アジング ジグヘッド",why:"夜の常夜灯まわりで狙うなら軽量ジグヘッド。"},
+    {tag:"エサ",cat:"コマセ・アミエビ",kw:"アミエビ コマセ",why:"群れを足止めするのに欠かせません。"}],
+  tachi:[
+    {tag:"仕掛け",cat:"タチウオテンヤ",kw:"タチウオ テンヤ",why:"東京湾の船釣りで主流。号数は船宿の指定を確認。"},
+    {tag:"ルアー",cat:"ワインド用ワーム＋ジグヘッド",kw:"タチウオ ワインド",why:"岸から夕マヅメに狙う定番の釣り方。"},
+    {tag:"小物",cat:"集魚ライト・ケミホタル",kw:"タチウオ ケミホタル",why:"夜や濁り潮でアピール力を上げます。"}]
+};
+function bestIn(area){let best=null;
+  FISH.forEach(f=>{for(let i=0;i<7;i++){const r=calc(area,f,i);if(!best||r.score>best.r.score)best={f,r};}});return best;}
+function renderGear(){
+  const a=A(),f=F(),r=calc(a,f,st.day); let show=f,msg;
+  if(r.score>=55){msg=`${fmt(r.day)}の${a.name}は<b>${f.name}が${rank(r.score).r}（${r.score}点）</b>。合わせて用意したい道具です。`;}
+  else{const b=bestIn(a); show=b.f;
+    msg=`${f.name}は${fmt(r.day)}は渋め（${r.score}点）。今週の${a.name}なら<b>${b.f.name}が${fmt(b.r.day)}に${b.r.score}点</b>で一番の狙い目なので、こちらの道具を表示しています。`;}
+  document.getElementById("gearMsg").innerHTML=msg;
+  document.getElementById("gears").innerHTML=GEAR[show.id].map(g=>{const k=encodeURIComponent(g.kw);
+    return `<div class="gear"><span class="tag">${g.tag}・${show.name}</span><span class="cat">${g.cat}</span><span class="why">${g.why}</span>
+    <span class="btns"><a class="rk" href="https://search.rakuten.co.jp/search/mall/${k}/" target="_blank" rel="noopener">楽天で見る</a><a href="https://www.amazon.co.jp/s?k=${k}" target="_blank" rel="noopener">Amazonで見る</a></span></div>`;}).join("");
+}
+function renderBadge(){
+  const b=document.getElementById("dataBadge"); if(!LIVE)return;
+  const g=new Date(LIVE.generated_at), hrs=(Date.now()-g)/36e5;
+  let live=0; for(let i=0;i<7;i++){const d=new Date(BASE);d.setDate(BASE.getDate()+i);if(cond(A(),i,d).live)live++;}
+  if(!live)return;
+  const t=`${g.getMonth()+1}/${g.getDate()} ${String(g.getHours()).padStart(2,"0")}:${String(g.getMinutes()).padStart(2,"0")}`;
+  b.className="sample live";
+  b.textContent=`● 実データ（Open-Meteo・${t}更新）`+(live<7?`／${7-live}日分は仮の値`:"")+(hrs>36?"／更新が遅れています":"");
+}
+function renderAll(){renderMatrix();chips("areaChips",AREAS,"area");chips("fishChips",FISH,"fish");renderDays();renderDetail();renderGear();renderBadge();}
+renderAll();
+// 実データを読み込み、届いたら描き直す（失敗時はサンプルのまま）
+fetch("data/forecast.json",{cache:"no-cache"}).then(r=>r.ok?r.json():Promise.reject(r.status))
+  .then(j=>{if(j&&j.areas&&Array.isArray(j.dates)){LIVE=j;renderAll();}}).catch(()=>{});
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {})); }
+</script>
+</body>
+</html>
